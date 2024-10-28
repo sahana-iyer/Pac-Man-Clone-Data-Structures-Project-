@@ -1,0 +1,256 @@
+// CODE FOR THE PROJECT 
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define ROWS 10
+#define COLS 10
+#define PACMAN 'P'
+#define WALL '#'
+#define PELLET '.'
+#define EMPTY ' '
+#define GHOST 'G'
+
+// Structure to represent positions
+typedef struct {
+    int x, y;
+} Position;
+
+// Node for Linked List (for pellets)
+typedef struct PelletNode {
+    Position pos;
+    struct PelletNode *next;
+} PelletNode;
+
+// Node for Queue (for ghost's movement history)
+typedef struct QueueNode {
+    Position pos;
+    struct QueueNode *next;
+} QueueNode;
+
+// Queue structure for storing ghost movement history
+typedef struct {
+    QueueNode *front, *rear;
+    int size;
+    int maxSize;
+} Queue;
+
+// Function prototypes
+void initializeMaze(char maze[ROWS][COLS], Position *pacman, Position ghosts[], PelletNode **pellets);
+void displayMaze(char maze[ROWS][COLS], int score, int lives);
+void movePacman(char maze[ROWS][COLS], Position *pacman, char move, int *score, int *lives, PelletNode **pellets);
+void moveGhosts(char maze[ROWS][COLS], Position ghosts[], Queue *ghostQueue);
+void addPellet(PelletNode **head, int x, int y);
+void removePellet(PelletNode **head, int x, int y);
+Queue *createQueue(int maxSize);
+void enqueue(Queue *queue, Position pos);
+Position dequeue(Queue *queue);
+void clearInputBuffer();
+
+// Main function
+int main() {
+    char maze[ROWS][COLS];
+    Position pacman;
+    Position ghosts[2];
+    int score = 0, lives = 3;
+    char move;
+    PelletNode *pellets = NULL;
+    Queue *ghostQueue = createQueue(5); // Queue for storing last 5 moves of each ghost
+
+    srand(time(0));
+    initializeMaze(maze, &pacman, ghosts, &pellets);
+
+    while (lives > 0 && pellets) {
+        system("clear"); // Use "cls" for Windows, "clear" for Linux/macOS
+        displayMaze(maze, score, lives);
+        move = getchar();
+        clearInputBuffer();
+        movePacman(maze, &pacman, move, &score, &lives, &pellets);
+        moveGhosts(maze, ghosts, ghostQueue);
+    }
+
+    system("clear");
+    if (!pellets) {
+        printf("Congratulations! You've cleared the maze!\n");
+    } else {
+        printf("Game Over! You've run out of lives.\n");
+    }
+
+    return 0;
+}
+
+// Initialize maze layout, positions, and pellet linked list
+void initializeMaze(char maze[ROWS][COLS], Position *pacman, Position ghosts[], PelletNode **pellets) {
+    char tempMaze[ROWS][COLS] = {
+        "##########",
+        "#P.......#",
+        "#.######.#",
+        "#....#...#",
+        "####.#.###",
+        "#......G.#",
+        "#..######.",
+        "#G.......#",
+        "#........#",
+        "##########"
+    };
+
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
+            maze[i][j] = tempMaze[i][j];
+            if (maze[i][j] == PACMAN) {
+                pacman->x = i;
+                pacman->y = j;
+            }
+            if (maze[i][j] == PELLET) {
+                addPellet(pellets, i, j);
+            }
+            if (maze[i][j] == GHOST) {
+                ghosts[0].x = 5;
+                ghosts[0].y = 8;
+                ghosts[1].x = i;
+                ghosts[1].y = j;
+            }
+        }
+    }
+}
+
+// Display maze, score, and lives
+void displayMaze(char maze[ROWS][COLS], int score, int lives) {
+    printf("Score: %d  Lives: %d\n", score, lives);
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
+            printf("%c", maze[i][j]);
+        }
+        printf("\n");
+    }
+}
+
+// Move Pac-Man and update score/lives
+void movePacman(char maze[ROWS][COLS], Position *pacman, char move, int *score, int *lives, PelletNode **pellets) {
+    int newX = pacman->x;
+    int newY = pacman->y;
+
+    switch (move) {
+        case 'w': newX--; break;
+        case 's': newX++; break;
+        case 'a': newY--; break;
+        case 'd': newY++; break;
+        default: return;
+    }
+
+    if (maze[newX][newY] == WALL) return;
+
+    if (maze[newX][newY] == PELLET) {
+        (*score)++;
+        removePellet(pellets, newX, newY);
+    }
+
+    if (maze[newX][newY] == GHOST) {
+        (*lives)--;
+        return;
+    }
+
+    maze[pacman->x][pacman->y] = EMPTY;
+    pacman->x = newX;
+    pacman->y = newY;
+    maze[newX][newY] = PACMAN;
+}
+
+// Move ghosts using a simple queue to avoid backtracking
+void moveGhosts(char maze[ROWS][COLS], Position ghosts[], Queue *ghostQueue) {
+    for (int i = 0; i < 2; i++) {
+        int dir = rand() % 4;
+        int newX = ghosts[i].x;
+        int newY = ghosts[i].y;
+
+        switch (dir) {
+            case 0: newX--; break;
+            case 1: newX++; break;
+            case 2: newY--; break;
+            case 3: newY++; break;
+        }
+
+        if (maze[newX][newY] != WALL && maze[newX][newY] != PACMAN) {
+            maze[ghosts[i].x][ghosts[i].y] = EMPTY;
+            ghosts[i].x = newX;
+            ghosts[i].y = newY;
+            maze[newX][newY] = GHOST;
+
+            enqueue(ghostQueue, ghosts[i]);
+            if (ghostQueue->size > ghostQueue->maxSize) {
+                dequeue(ghostQueue);
+            }
+        }
+    }
+}
+
+// Linked list operations for pellet positions
+void addPellet(PelletNode **head, int x, int y) {
+    PelletNode *newNode = (PelletNode*)malloc(sizeof(PelletNode));
+    newNode->pos.x = x;
+    newNode->pos.y = y;
+    newNode->next = *head;
+    *head = newNode;
+}
+
+void removePellet(PelletNode **head, int x, int y) {
+    PelletNode *temp = *head, *prev = NULL;
+    while (temp != NULL) {
+        if (temp->pos.x == x && temp->pos.y == y) {
+            if (prev == NULL) {
+                *head = temp->next;
+            } else {
+                prev->next = temp->next;
+            }
+            free(temp);
+            return;
+        }
+        prev = temp;
+        temp = temp->next;
+    }
+}
+
+// Queue operations for ghost movement
+Queue *createQueue(int maxSize) {
+    Queue *queue = (Queue*)malloc(sizeof(Queue));
+    queue->front = queue->rear = NULL;
+    queue->size = 0;
+    queue->maxSize = maxSize;
+    return queue;
+}
+
+void enqueue(Queue *queue, Position pos) {
+    QueueNode *newNode = (QueueNode*)malloc(sizeof(QueueNode));
+    newNode->pos = pos;
+    newNode->next = NULL;
+
+    if (queue->rear == NULL) {
+        queue->front = queue->rear = newNode;
+    } else {
+        queue->rear->next = newNode;
+        queue->rear = newNode;
+    }
+    queue->size++;
+}
+
+Position dequeue(Queue *queue) {
+    Position pos = {-1, -1};
+    if (queue->front == NULL) return pos;
+
+    QueueNode *temp = queue->front;
+    pos = temp->pos;
+    queue->front = queue->front->next;
+
+    if (queue->front == NULL) queue->rear = NULL;
+
+    free(temp);
+    queue->size--;
+    return pos;
+}
+
+// Clear input buffer for getchar
+void clearInputBuffer() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF) {}
+}
