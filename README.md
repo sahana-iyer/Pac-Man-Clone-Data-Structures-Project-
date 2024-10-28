@@ -1,6 +1,6 @@
 # Pac-Man Clone (Data Structures Project)
 
-Project Overview
+PROJECT OVERVIEW
 
 This project is a simplified Pac-Man clone built in C. The game features a 10x10 grid maze with walls, pellets, Pac-Man, and ghosts. The player controls Pac-Man to collect pellets and avoid ghosts, earning points while navigating the maze. The game is over when all pellets are collected or if Pac-Man loses all lives.
 
